@@ -1,4 +1,10 @@
 {
     "mode": "passive",
-    "collecting_inside_data": true
+    "collecting_inside_data": true,
+    "algorithms": {
+        "naive": {
+            "required_network_matches": 3,
+            "rssi_match_epsilon": 5
+        }
+    }
 }
