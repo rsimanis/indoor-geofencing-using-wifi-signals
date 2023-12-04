@@ -3,8 +3,12 @@ import json
 import time
 import machine
 import neopixel
+import network
+import binascii
 
 _config = None
+nic = network.WLAN(network.STA_IF)
+nic.active(True)
 
 def get_config():
     global _config
@@ -40,10 +44,27 @@ def set_led_color(r, g, b):
     strip[0] = (r, g, b)
     strip.write()
     
-def set_led_color_by_active(active):
-    if active:
+def set_led_color_by_state(state):
+    if state == 'active':
         set_led_color(0, 255, 0)
-    else:
+    elif state == 'inactive':
         set_led_color(255, 0, 0)
+        
+def get_sta_nic():
+    return network.WLAN(network.STA_IF)
+
+def get_ap_nic():
+    return network.WLAN(network.AP_IF)
+        
+def scan_networks():
+    nic = get_sta_nic()
+    nic.active(True)
+    networks = list(map(lambda network: {
+        'ssid': network[0].decode('ascii'),
+        'bssid': binascii.hexlify(network[1]).decode('ascii'),
+        'rssi': network[3],
+    }, nic.scan()))
+    nic.active(False)
+    return networks
 
     
