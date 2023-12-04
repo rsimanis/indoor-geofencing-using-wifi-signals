@@ -10,8 +10,6 @@ NETWORKS_FILENAME = 'networks.csv'
 CONFIG_FILENAME = 'config.json'
 
 _config = None
-nic = network.WLAN(network.STA_IF)
-nic.active(True)
 
 def get_config():
     global _config
