@@ -4,7 +4,7 @@
     "algorithms": {
         "naive": {
             "required_network_matches": 3,
-            "rssi_match_epsilon": 5
+            "rssi_match_epsilon": 3
         }
     }
 }
