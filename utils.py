@@ -17,7 +17,7 @@ def get_config():
     global _config
     if _config is None:
         config = parse_config()
-        validate_config(config)
+        prepare_config(config)
         _config = config
     assert _config is not None
     return _config
@@ -28,11 +28,25 @@ def parse_config():
     config = json.loads(config_json)
     return config
 
-def validate_config(config):
+def prepare_config(config):
     # TODO
-    assert 'mode' in config and config['mode'] in ['active', 'passive']
-    assert 'collecting_inside_data' in config and config['collecting_inside_data'] in [True, False]
-    assert 'active_algorithm' in config and config['active_algorithm'] in ['naive']
+    assert 'mode' in config
+    assert config['mode'] in ['active', 'passive', 'test']
+    
+    assert 'collecting_inside_data' in config
+    assert config['collecting_inside_data'] in [True, False]
+    
+    assert 'active_algorithm' in config
+    assert config['active_algorithm'] in ['naive']
+    
+    assert 'testing_inside' in config
+    assert config['testing_inside'] in [True, False]
+
+    if 'results_filename_suffix' in config:
+        assert isinstance(config['results_filename_suffix'], str)
+        assert config['results_filename_suffix'] != ''
+    else:
+        config['results_filename_suffix'] = None
     
 def is_button_pressed(debounce_delay=0.05):
     button = get_button()
@@ -72,11 +86,19 @@ def set_led_color_for_active_mode(state, is_inside = None, is_outside = None):
     elif state == 'inactive':
         set_led_color(255, 255, 255)
 
+def set_led_color_for_test_mode(state):
+    if state == 'active':
+        set_led_color(0, 255, 0)
+    elif state == 'inactive':
+        set_led_color(255, 0, 0)
+
 def set_led_color_by_mode_and_state(mode, state):
     if mode == 'passive':
         set_led_color_for_passive_mode(state)
     elif mode == 'active':
         set_led_color_for_active_mode(state)
+    elif mode == 'test':
+        set_led_color_for_test_mode(state)
         
 def scan_networks():
     print('Scanning networks...')
@@ -150,7 +172,7 @@ def parse_csv_file(filename, line_type):
     parsed_file = []
     for line in lines:
         fields = line.split(',')
-        assert(len(fields) == len(headers))
+        assert len(fields) == len(headers)
         if line_type == 'list':
             parsed_line = fields
         elif line_type == 'tuple':
@@ -160,7 +182,7 @@ def parse_csv_file(filename, line_type):
             for i in range(0, len(fields)):
                 parsed_line[headers[i]] = fields[i]
         else:
-            assert(False, 'Invalid line type')
+            assert False, 'Invalid line type'
         parsed_file.append(parsed_line)
     print(f'Parsed CSV file [{filename}] as {line_type}s')
     return parsed_file
@@ -175,12 +197,6 @@ def get_saved_networks():
     ])
     print('Got saved networks')
     return saved_networks
-
-def create_networks_file():
-    print('Creating networks file...')
-    with open(NETWORKS_FILENAME, 'w') as file:
-        file.write('id,inside,bssid,rssi\n')
-    print('Created networks file')
 
 def save_networks(networks):
     print('Saving networks...')
@@ -206,6 +222,37 @@ def save_networks(networks):
             file.write(f'{id},{inside},{bssid},{rssi}\n')
     _id = id + 1
     print(f'Saved networks (id = {id})')
+
+def create_networks_file():
+    print('Creating networks file...')
+    with open(NETWORKS_FILENAME, 'w') as file:
+        file.write('id,inside,bssid,rssi\n')
+    print('Created networks file')
+
+def save_test_data(is_inside, is_outside):
+    print('Saving test data...')
+    if not does_file_exist(get_results_filename()):
+        create_results_file()
+    config = get_config()
+    expected_is_inside = config['testing_inside']
+    with open(get_results_filename(), 'a') as file:
+        file.write(f'{is_inside},{is_outside},{expected_is_inside}\n')
+    print('Saved test data')
+
+def create_results_file():
+    print('Creating results file...')
+    with open(get_results_filename(), 'w') as file:
+        file.write('is_inside,is_outside,expected_is_inside\n')
+    print('Created results file')
+
+def get_results_filename():
+    config = get_config()
+    suffix = config['results_filename_suffix']
+    filename = 'results'
+    if suffix is not None:
+        filename += f'-{suffix}'
+    filename += '.csv'
+    return filename
 
 def match_using_naive_algorithm(current_networks, saved_networks):
     config = get_config()
@@ -263,7 +310,9 @@ def match_using_algorithm(algorithm, current_networks, saved_networks):
     if algorithm == 'naive':
         return match_using_naive_algorithm(current_networks, saved_networks)
     else:
-        assert(False, f'Invalid algorithm [{algorithm}]')
+        assert False, f'Invalid algorithm [{algorithm}]'
+
+
 
 
 

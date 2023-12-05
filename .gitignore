@@ -163,3 +163,4 @@ env.json
 config.json
 *.csv
 networks/
+results/

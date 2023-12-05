@@ -2,6 +2,8 @@
     "mode": "passive",
     "collecting_inside_data": true,
     "active_algorithm": "naive",
+    "testing_inside": true,
+    "results_filename_suffix": "naive1",
     "algorithms": {
         "naive": {
             "required_network_matches": 3,
