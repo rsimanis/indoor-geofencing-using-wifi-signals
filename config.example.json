@@ -1,6 +1,7 @@
 {
     "mode": "passive",
     "collecting_inside_data": true,
+    "active_algorithm": "naive",
     "algorithms": {
         "naive": {
             "required_network_matches": 3,

@@ -12,7 +12,6 @@ CONFIG_FILENAME = 'config.json'
 
 _config = None
 _id = None
-_saved_networks = None
 
 def get_config():
     global _config
@@ -30,8 +29,10 @@ def parse_config():
     return config
 
 def validate_config(config):
+    # TODO
     assert 'mode' in config and config['mode'] in ['active', 'passive']
     assert 'collecting_inside_data' in config and config['collecting_inside_data'] in [True, False]
+    assert 'active_algorithm' in config and config['active_algorithm'] in ['naive']
     
 def is_button_pressed(debounce_delay=0.05):
     button = get_button()
@@ -70,21 +71,21 @@ def set_led_color_for_active_mode(state, is_inside = None, is_outside = None):
             set_led_color(0, 0, 255)
     elif state == 'inactive':
         set_led_color(255, 255, 255)
-          
-def get_sta_nic():
-    return network.WLAN(network.STA_IF)
 
-def get_ap_nic():
-    return network.WLAN(network.AP_IF)
+def set_led_color_by_mode_and_state(mode, state):
+    if mode == 'passive':
+        set_led_color_for_passive_mode(state)
+    elif mode == 'active':
+        set_led_color_for_active_mode(state)
         
 def scan_networks():
     print('Scanning networks...')
-    nic = get_sta_nic()
+    nic = network.WLAN(network.STA_IF)
     nic.active(True)
-    networks = list(map(lambda network: [
+    networks = list_map(nic.scan(), lambda network: [
         binascii.hexlify(network[1]).decode('ascii'), # bssid
         network[3], # rssi
-    ], nic.scan()))
+    ])
     nic.active(False)
     print('Scanned networks')
     return networks
@@ -164,50 +165,16 @@ def parse_csv_file(filename, line_type):
     print(f'Parsed CSV file [{filename}] as {line_type}s')
     return parsed_file
 
-def get_saved_inside_networks_by_id(cache = False):
-    return partition_saved_networks_by_id(get_saved_inside_networks(cache))
-
-def get_saved_outside_networks_by_id(cache = False):
-    return partition_saved_networks_by_id(get_saved_outside_networks(cache))
-
-def get_saved_inside_networks(cache = False):
-    print('Getting saved inside networks...')
-    saved_inside_networks = list(filter(lambda network: get_saved_network_inside(network), get_saved_networks(cache)))
-    print('Got saved inside networks')
-    return saved_inside_networks
-
-def get_saved_outside_networks(cache = False):
-    print('Getting saved outside networks...')
-    saved_outside_networks = list(filter(lambda network: not get_saved_network_inside(network), get_saved_networks(cache)))
-    print('Got saved outside networks')
-    return saved_outside_networks
-
-def get_saved_networks(cache = False):
+def get_saved_networks():
     print('Getting saved networks...')
-    global _saved_networks
-    if cache and _saved_networks is not None:
-        print('Got saved networks')
-        return _saved_networks
-    saved_networks = list(map(lambda network: [
+    saved_networks = list_map(parse_csv_file_as_lists(NETWORKS_FILENAME), lambda network: [
         int(get_saved_network_id(network)),
         get_saved_network_inside(network) == 'True',
         get_saved_network_bssid(network),
         int(get_saved_network_rssi(network)),
-    ], parse_csv_file_as_lists(NETWORKS_FILENAME)))
-    if cache:
-        _saved_networks = saved_networks
+    ])
     print('Got saved networks')
     return saved_networks
-
-def partition_saved_networks_by_id(networks):
-    res = {}
-    for network in networks:
-        id = get_saved_network_id(network)
-        if id in res:
-            res[id].append(network)
-        else:
-            res[id] = [network]
-    return res
 
 def create_networks_file():
     print('Creating networks file...')
@@ -239,30 +206,65 @@ def save_networks(networks):
             file.write(f'{id},{inside},{bssid},{rssi}\n')
     _id = id + 1
     print(f'Saved networks (id = {id})')
-    
-def get_network_matching_data_using_naive_algorithm(current_networks, saved_networks_by_id, inside):
-    matched = False
-    adjective = 'inside' if inside else 'outside'
-    print(f'Matching {adjective} networks using naive algorithm...')
+
+def match_using_naive_algorithm(current_networks, saved_networks):
     config = get_config()
     required_network_matches = config['algorithms']['naive']['required_network_matches']
     rssi_match_epsilon = config['algorithms']['naive']['rssi_match_epsilon']
-    total_matches = 0
-    for saved_networks in saved_networks_by_id.values():
-        network_matches = 0
-        for saved_network in saved_networks:
-            for current_network in current_networks:
-                if get_scanned_network_bssid(current_network) == get_saved_network_bssid(saved_network) and math.fabs(get_scanned_network_rssi(current_network) - get_saved_network_rssi(saved_network)) <= rssi_match_epsilon:
-                    network_matches += 1
-        if network_matches >= required_network_matches:
-            total_matches += 1
-            matched = True
-    print(f'Matched {adjective} networks using naive algorithm [matched={matched}, total_matches={total_matches}]')
-    return {
-        "matched": matched,
-        "total_matches": total_matches,
-    }
+    inside_network_matches_by_id = {}
+    outside_network_matches_by_id = {}
+
+    for saved_network in saved_networks:
+        matching_current_network = list_find(current_networks, lambda current_network: get_scanned_network_bssid(current_network) == get_saved_network_bssid(saved_network) and math.fabs(get_scanned_network_rssi(current_network) - get_saved_network_rssi(saved_network)) <= rssi_match_epsilon)
+        if matching_current_network is None:
+            continue
+        network_matches_by_id = inside_network_matches_by_id if get_saved_network_inside(saved_network) else outside_network_matches_by_id
+        if get_saved_network_id(saved_network) in network_matches_by_id:
+            network_matches_by_id[get_saved_network_id(saved_network)] += 1
+        else:
+            network_matches_by_id[get_saved_network_id(saved_network)] = 1
+
+    def count_total_matches(network_matches_by_id):
+        total_matches = 0
+        for network_matches in network_matches_by_id.values():
+            if network_matches >= required_network_matches:
+                total_matches += 1
+        return total_matches
     
+    inside_total_matches = count_total_matches(inside_network_matches_by_id)
+    outside_total_matches = count_total_matches(outside_network_matches_by_id)
+    print(f'''Matched networks using NAIVE algorithm [inside_total_matches = {inside_total_matches}, outside_total_matches = {outside_total_matches}]''')
+
+    is_inside = is_outside = False
+    if inside_total_matches > outside_total_matches:
+        is_inside = True
+    elif inside_total_matches < outside_total_matches:
+        is_outside = True
     
+    return [is_inside, is_outside]
+    
+def list_filter(lst, callback):
+    return list(filter(callback, lst))
+
+def list_map(lst, callback):
+    return list(map(callback, lst))
+
+def list_find(lst, callback, default=None):
+    try:
+        return next(filter(callback, lst))
+    except StopIteration:
+        return default
+
+def match_using_active_algorithm(current_networks, saved_networks):
+    active_algorithm = get_config()['active_algorithm']
+    return match_using_algorithm(active_algorithm, current_networks, saved_networks)
+
+def match_using_algorithm(algorithm, current_networks, saved_networks):
+    if algorithm == 'naive':
+        return match_using_naive_algorithm(current_networks, saved_networks)
+    else:
+        assert(False, f'Invalid algorithm [{algorithm}]')
+
+
 
     
