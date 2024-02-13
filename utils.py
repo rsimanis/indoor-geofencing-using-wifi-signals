@@ -47,6 +47,9 @@ def prepare_config(config):
         assert config['results_filename_suffix'] != ''
     else:
         config['results_filename_suffix'] = None
+        
+    if '_id' not in config:
+        config['_id'] = None
     
 def is_button_pressed(debounce_delay=0.05):
     button = get_button()

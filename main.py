@@ -2,6 +2,7 @@ import utils
 
 state = 'inactive'
 config = utils.get_config()
+utils._id = config['_id']
 mode = config['mode']
 is_button_pressed = None
 prev_is_button_pressed = None
