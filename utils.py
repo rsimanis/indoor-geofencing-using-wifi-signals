@@ -37,7 +37,6 @@ def prepare_config(config):
     assert config['collecting_inside'] in [True, False]
 
     assert 'collecting_quadrant' in config
-    assert config['collecting_quadrant'] in [True, False]
     
     assert 'active_algorithm' in config
     assert config['active_algorithm'] in ['naive']
