@@ -1,6 +1,7 @@
 {
     "mode": "passive",
-    "collecting_inside_data": true,
+    "collecting_inside": true,
+    "collecting_quadrant": 1,
     "active_algorithm": "naive",
     "testing_inside": true,
     "results_filename_suffix": "naive1",

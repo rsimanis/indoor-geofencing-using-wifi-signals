@@ -33,8 +33,11 @@ def prepare_config(config):
     assert 'mode' in config
     assert config['mode'] in ['active', 'passive', 'test']
     
-    assert 'collecting_inside_data' in config
-    assert config['collecting_inside_data'] in [True, False]
+    assert 'collecting_inside' in config
+    assert config['collecting_inside'] in [True, False]
+
+    assert 'collecting_quadrant' in config
+    assert config['collecting_quadrant'] in [True, False]
     
     assert 'active_algorithm' in config
     assert config['active_algorithm'] in ['naive']
@@ -219,17 +222,18 @@ def save_networks(networks):
     config = get_config()
     with open(NETWORKS_FILENAME, 'a') as file:
         for network in networks:
-            inside = config["collecting_inside_data"]
+            inside = config["collecting_inside"]
+            quadrant = config["collecting_quadrant"]
             bssid = get_scanned_network_bssid(network)
             rssi = get_scanned_network_rssi(network)
-            file.write(f'{id},{inside},{bssid},{rssi}\n')
+            file.write(f'{id},{inside},{quadrant},{bssid},{rssi}\n')
     _id = id + 1
     print(f'Saved networks (id = {id})')
 
 def create_networks_file():
     print('Creating networks file...')
     with open(NETWORKS_FILENAME, 'w') as file:
-        file.write('id,inside,bssid,rssi\n')
+        file.write('id,inside,quadrant,bssid,rssi\n')
     print('Created networks file')
 
 def save_test_data(is_inside, is_outside):

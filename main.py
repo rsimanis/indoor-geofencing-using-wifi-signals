@@ -6,7 +6,6 @@ utils._id = config['_id']
 mode = config['mode']
 is_button_pressed = None
 prev_is_button_pressed = None
-unsaved_networks = []
 
 if mode == 'active' or mode == 'test':
     saved_networks = utils.get_saved_networks()
