@@ -115,44 +115,70 @@ def scan_networks():
         network[3], # rssi
     ])
     nic.active(False)
-    print('Scanned networks')
     return networks
 
 def get_scanned_network_bssid(network):
-    return network[0]
+    return network[get_scanned_network_bssid_index()]
 
 def set_scanned_network_bssid(network, bssid):
-    network[0] = bssid
+    network[get_scanned_network_bssid_index()] = bssid
 
 def get_scanned_network_rssi(network):
-    return network[1]
+    return network[get_scanned_network_rssi_index()]
 
 def set_scanned_network_rssi(network, rssi):
-    network[1] = rssi
+    network[get_scanned_network_rssi_index()] = rssi
+
+def get_scanned_network_bssid_index():
+    return 0
+
+def get_scanned_network_rssi_index():
+    return 1
 
 def get_saved_network_id(network):
-    return network[0]
+    return network[get_saved_network_id_index()]
 
 def set_saved_network_id(network, id):
-    network[0] = id
+    network[get_saved_network_id_index()] = id
 
 def get_saved_network_inside(network):
-    return network[1]
+    return network[get_saved_network_inside_index()]
 
 def set_saved_network_inside(network, inside):
-    network[1] = inside
+    network[get_saved_network_inside_index()] = inside
+
+def get_saved_network_quadrant(network):
+    return network[get_saved_network_quadrant_index()]
+
+def set_saved_network_quadrant(network, quadrant):
+    network[get_saved_network_quadrant_index()] = quadrant
 
 def get_saved_network_bssid(network):
-    return network[2]
+    return network[get_saved_network_bssid_index()]
 
 def set_saved_network_bssid(network, bssid):
-    network[2] = bssid
+    network[get_saved_network_bssid_index()] = bssid
 
 def get_saved_network_rssi(network):
-    return network[3]
+    return network[get_saved_network_rssi_index()]
 
 def set_saved_network_rssi(network, rssi):
-    network[3] = rssi
+    network[get_saved_network_rssi_index()] = rssi
+
+def get_saved_network_id_index():
+    return 0
+
+def get_saved_network_inside_index():
+    return 1
+
+def get_saved_network_quadrant_index():
+    return 2
+
+def get_saved_network_bssid_index():
+    return 3
+
+def get_saved_network_rssi_index():
+    return 4
         
 def does_file_exist(filename):
     return filename in os.listdir()
@@ -190,7 +216,6 @@ def parse_csv_file(filename, line_type):
         else:
             assert False, 'Invalid line type'
         parsed_file.append(parsed_line)
-    print(f'Parsed CSV file [{filename}] as {line_type}s')
     return parsed_file
 
 def get_saved_networks():
@@ -201,7 +226,6 @@ def get_saved_networks():
         get_saved_network_bssid(network),
         int(get_saved_network_rssi(network)),
     ])
-    print('Got saved networks')
     return saved_networks
 
 def save_networks(networks):
@@ -234,7 +258,6 @@ def create_networks_file():
     print('Creating networks file...')
     with open(NETWORKS_FILENAME, 'w') as file:
         file.write('id,inside,quadrant,bssid,rssi\n')
-    print('Created networks file')
 
 def save_test_data(is_inside, is_outside):
     print('Saving test data...')
@@ -244,13 +267,11 @@ def save_test_data(is_inside, is_outside):
     expected_is_inside = config['testing_inside']
     with open(get_results_filename(), 'a') as file:
         file.write(f'{is_inside},{is_outside},{expected_is_inside}\n')
-    print('Saved test data')
 
 def create_results_file():
     print('Creating results file...')
     with open(get_results_filename(), 'w') as file:
         file.write('is_inside,is_outside,expected_is_inside\n')
-    print('Created results file')
 
 def get_results_filename():
     config = get_config()
@@ -319,8 +340,10 @@ def match_using_algorithm(algorithm, current_networks, saved_networks):
     else:
         assert False, f'Invalid algorithm [{algorithm}]'
 
-
-
-
-
-    
+def display_collecting_countdown():
+    print('Scanning networks in 3...')
+    time.sleep(2)
+    print('2...')
+    time.sleep(2)
+    print('1...')
+    time.sleep(2)

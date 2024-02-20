@@ -31,6 +31,7 @@ while True:
             utils.set_led_color_for_active_mode(state, is_inside, is_outside)
     elif mode == 'passive':
         if state == 'active':
+            utils.display_collecting_countdown()
             networks = utils.scan_networks()
             utils.save_networks(networks)
     elif mode == 'test':
