@@ -164,3 +164,5 @@ config.json
 *.csv
 networks/
 results/
+train/
+test/

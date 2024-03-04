@@ -1,9 +1,6 @@
 import os
 import json
 import time
-import machine
-import neopixel
-import network
 import binascii
 import math
 
@@ -29,29 +26,14 @@ def parse_config():
     return config
 
 def prepare_config(config):
-    # TODO
-    assert 'mode' in config
-    assert config['mode'] in ['active', 'passive', 'test']
-    
-    assert 'collecting_inside' in config
-    assert config['collecting_inside'] in [True, False]
-
-    assert 'collecting_quadrant' in config
-    
-    assert 'active_algorithm' in config
-    assert config['active_algorithm'] in ['naive']
-    
-    assert 'testing_inside' in config
-    assert config['testing_inside'] in [True, False]
-
-    if 'results_filename_suffix' in config:
-        assert isinstance(config['results_filename_suffix'], str)
-        assert config['results_filename_suffix'] != ''
-    else:
+    if 'results_filename_suffix' not in config:
         config['results_filename_suffix'] = None
         
     if '_id' not in config:
         config['_id'] = None
+
+    if 'log' not in config:
+        config['log'] = True
     
 def is_button_pressed(debounce_delay=0.05):
     button = get_button()
@@ -62,9 +44,12 @@ def is_button_pressed(debounce_delay=0.05):
     return False
 
 def get_button():
+    import machine
     return machine.Pin(41, machine.Pin.IN, machine.Pin.PULL_UP)
 
 def get_led_strip():
+    import machine
+    import neopixel
     return neopixel.NeoPixel(machine.Pin(35), 1)
 
 def set_led_color(r, g, b):
@@ -106,7 +91,8 @@ def set_led_color_by_mode_and_state(mode, state):
         set_led_color_for_test_mode(state)
         
 def scan_networks():
-    print('Scanning networks...')
+    log('Scanning networks...')
+    import network
     nic = network.WLAN(network.STA_IF)
     nic.active(True)
     networks = list_map(nic.scan(), lambda network: [
@@ -115,6 +101,12 @@ def scan_networks():
     ])
     nic.active(False)
     return networks
+
+def convert_saved_to_scanned_network(saved_network):
+    scanned_network = [None, None]
+    set_scanned_network_bssid(scanned_network, get_saved_network_bssid(saved_network))
+    set_scanned_network_rssi(scanned_network, get_saved_network_rssi(saved_network))
+    return scanned_network
 
 def get_scanned_network_bssid(network):
     return network[get_scanned_network_bssid_index()]
@@ -192,7 +184,7 @@ def parse_csv_file_as_tuples(filename):
     return parse_csv_file(filename, 'tuple')
 
 def parse_csv_file(filename, line_type):
-    print(f'Parsing CSV file [{filename}] as {line_type}s...')
+    log(f'Parsing CSV file [{filename}] as {line_type}s...')
     with open(filename, 'r') as file:
         file_content = file.read()
     lines = file_content.split('\n')
@@ -217,22 +209,23 @@ def parse_csv_file(filename, line_type):
         parsed_file.append(parsed_line)
     return parsed_file
 
-def get_saved_networks():
-    print('Getting saved networks...')
-    saved_networks = list_map(parse_csv_file_as_lists(NETWORKS_FILENAME), lambda network: [
+def get_saved_networks(filename):
+    log('Getting saved networks...')
+    networks = list_map(parse_csv_file_as_lists(filename), lambda network: [
         int(get_saved_network_id(network)),
         get_saved_network_inside(network) == 'True',
+        int(get_saved_network_quadrant(network)),
         get_saved_network_bssid(network),
         int(get_saved_network_rssi(network)),
     ])
-    return saved_networks
+    return networks
 
 def save_networks(networks):
-    print('Saving networks...')
+    log('Saving networks...')
     global _id
     if does_file_exist(NETWORKS_FILENAME):
         if _id is None:
-            saved_networks = get_saved_networks()
+            saved_networks = get_saved_networks(NETWORKS_FILENAME)
             if len(saved_networks) == 0:
                 id = 1
             else:
@@ -251,15 +244,15 @@ def save_networks(networks):
             rssi = get_scanned_network_rssi(network)
             file.write(f'{id},{inside},{quadrant},{bssid},{rssi}\n')
     _id = id + 1
-    print(f'Saved networks (id = {id})')
+    log(f'Saved networks (id = {id})')
 
 def create_networks_file():
-    print('Creating networks file...')
+    log('Creating networks file...')
     with open(NETWORKS_FILENAME, 'w') as file:
         file.write('id,inside,quadrant,bssid,rssi\n')
 
 def save_test_data(is_inside, is_outside):
-    print('Saving test data...')
+    log('Saving test data...')
     if not does_file_exist(get_results_filename()):
         create_results_file()
     config = get_config()
@@ -268,7 +261,7 @@ def save_test_data(is_inside, is_outside):
         file.write(f'{is_inside},{is_outside},{expected_is_inside}\n')
 
 def create_results_file():
-    print('Creating results file...')
+    log('Creating results file...')
     with open(get_results_filename(), 'w') as file:
         file.write('is_inside,is_outside,expected_is_inside\n')
 
@@ -281,10 +274,15 @@ def get_results_filename():
     filename += '.csv'
     return filename
 
-def match_using_naive_algorithm(current_networks, saved_networks):
-    config = get_config()
-    required_network_matches = config['algorithms']['naive']['required_network_matches']
-    rssi_match_epsilon = config['algorithms']['naive']['rssi_match_epsilon']
+def match_using_naive_algorithm(current_networks, saved_networks, config = {}):
+    if 'required_network_matches' not in config:
+        config['required_network_matches'] = get_config()['algorithms']['naive']['required_network_matches']
+    if 'rssi_match_epsilon' not in config:
+        config['rssi_match_epsilon'] = get_config()['algorithms']['naive']['rssi_match_epsilon']
+
+    required_network_matches = config['required_network_matches']
+    rssi_match_epsilon = config['rssi_match_epsilon']
+
     inside_network_matches_by_id = {}
     outside_network_matches_by_id = {}
 
@@ -307,7 +305,7 @@ def match_using_naive_algorithm(current_networks, saved_networks):
     
     inside_total_matches = count_total_matches(inside_network_matches_by_id)
     outside_total_matches = count_total_matches(outside_network_matches_by_id)
-    print(f'''Matched networks using NAIVE algorithm [inside_total_matches = {inside_total_matches}, outside_total_matches = {outside_total_matches}]''')
+    log(f'''Matched networks using NAIVE algorithm [inside_total_matches = {inside_total_matches}, outside_total_matches = {outside_total_matches}]''')
 
     is_inside = is_outside = False
     if inside_total_matches > outside_total_matches:
@@ -340,9 +338,13 @@ def match_using_algorithm(algorithm, current_networks, saved_networks):
         assert False, f'Invalid algorithm [{algorithm}]'
 
 def display_collecting_countdown():
-    print('Scanning networks in 3...')
+    log('Scanning networks in 3...')
     time.sleep(2)
-    print('2...')
+    log('2...')
     time.sleep(2)
-    print('1...')
+    log('1...')
     time.sleep(2)
+
+def log(message):
+    if get_config()['log']:
+        print(message)
