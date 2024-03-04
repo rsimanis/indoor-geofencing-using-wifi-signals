@@ -63,26 +63,14 @@ def test_algorithm(match, match_args = {}):
     results['average'] = round(accuracy_total / len(test_data), 2)
     return results
 
-def match_using_naive_algorithm(current_networks, train_networks, args = {}):
-    config = {
-        'required_network_matches': 3,
-        'rssi_match_epsilon': 3,
-    }
-    return utils.match_using_naive_algorithm(current_networks, train_networks, config)
+def match_using_naive_algorithm(current_networks, train_networks, args):
+    return utils.match_using_naive_algorithm(current_networks, train_networks, args)
 
-def test_naive_algorithm():
-    return test_algorithm(match_using_naive_algorithm)
+def test_naive_algorithm(args):
+    return test_algorithm(match_using_naive_algorithm, args)
 
-def match_using_knn_algorithm(current_networks, train_networks, args = {}):
-    config = {
-        'k': 3,
-        'dist_algo': args['dist_algo'],
-    }
-    return utils.match_using_knn_algorithm(current_networks, train_networks, config)
+def match_using_knn_algorithm(current_networks, train_networks, args):
+    return utils.match_using_knn_algorithm(current_networks, train_networks, args)
 
-
-def test_knn_algorithm(dist_algo = 'euclidian'):
-    args = {
-        'dist_algo': dist_algo,
-    };
+def test_knn_algorithm(args):
     return test_algorithm(match_using_knn_algorithm, args)
