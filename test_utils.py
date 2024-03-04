@@ -66,11 +66,19 @@ def test_algorithm(match, match_args = {}):
 def match_using_naive_algorithm(current_networks, train_networks, args):
     return utils.match_using_naive_algorithm(current_networks, train_networks, args)
 
-def test_naive_algorithm(args):
-    return test_algorithm(match_using_naive_algorithm, args)
+def test_naive_algorithm(required_network_matches, rssi_match_epsilon):
+    match_args = {
+        'required_network_matches': required_network_matches,
+        'rssi_match_epsilon': rssi_match_epsilon,
+    }
+    return test_algorithm(match_using_naive_algorithm, match_args)
 
 def match_using_knn_algorithm(current_networks, train_networks, args):
     return utils.match_using_knn_algorithm(current_networks, train_networks, args)
 
-def test_knn_algorithm(args):
-    return test_algorithm(match_using_knn_algorithm, args)
+def test_knn_algorithm(k, dist_algo):
+    match_args = {
+        'k': k,
+        'dist_algo': dist_algo,
+    }
+    return test_algorithm(match_using_knn_algorithm, match_args)
