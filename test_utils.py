@@ -24,17 +24,11 @@ def get_train_networks():
 def get_test_data():
     test_data = {}
     for filepath in glob(f'{get_test_dir()}/*'):
-        print(filepath)
         basename = os.path.basename(filepath)
         parsed = parse_networks_basename(basename)
         date = parsed['date']
         networks = utils.get_saved_networks(filepath)
-        chunks = {}
-        for network in networks:
-            id = utils.get_saved_network_id(network)
-            if id not in chunks:
-                chunks[id] = []
-            chunks[id].append(network)
+        chunks = utils.partition_saved_networks_by_id(networks)
         test_data[date] = chunks
     return test_data
 
@@ -78,3 +72,13 @@ def match_using_naive_algorithm(current_networks, train_networks):
 
 def test_naive_algorithm():
     return test_algorithm(match_using_naive_algorithm)
+
+def match_using_knn_algorithm(current_networks, train_networks):
+    config = {
+        'k': 3,
+        'dist_algo': 'euclidian',
+    }
+    return utils.match_using_knn_algorithm(current_networks, train_networks, config)
+
+def test_knn_algorithm():
+    return test_algorithm(match_using_knn_algorithm)

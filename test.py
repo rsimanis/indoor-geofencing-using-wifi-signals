@@ -2,11 +2,8 @@ import test_utils
 import utils
 from pprint import pprint
 
-
-
-
-results = test_utils.test_naive_algorithm()
-pprint(results)
+# pprint(test_utils.test_naive_algorithm())
+pprint(test_utils.test_knn_algorithm())
 
 
 

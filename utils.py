@@ -277,6 +277,7 @@ def get_results_filename():
 def match_using_naive_algorithm(current_networks, saved_networks, config = {}):
     if 'required_network_matches' not in config:
         config['required_network_matches'] = get_config()['algorithms']['naive']['required_network_matches']
+
     if 'rssi_match_epsilon' not in config:
         config['rssi_match_epsilon'] = get_config()['algorithms']['naive']['rssi_match_epsilon']
 
@@ -307,13 +308,95 @@ def match_using_naive_algorithm(current_networks, saved_networks, config = {}):
     outside_total_matches = count_total_matches(outside_network_matches_by_id)
     log(f'''Matched networks using NAIVE algorithm [inside_total_matches = {inside_total_matches}, outside_total_matches = {outside_total_matches}]''')
 
-    is_inside = is_outside = False
     if inside_total_matches > outside_total_matches:
-        is_inside = True
-    elif inside_total_matches < outside_total_matches:
-        is_outside = True
+        return [True, False]
+    elif outside_total_matches > inside_total_matches:
+        return [False, True]
+    elif inside_total_matches == 0 and outside_total_matches == 0:
+        return [False, False]
+    else:
+        return [True, True]
+
+def match_using_knn_algorithm(current_networks, saved_networks, config = {}):
+    if 'k' not in config:
+        config['k'] = get_config()['algorithms']['knn']['k']
+
+    if 'dist_algo' not in config:
+        config['dist_algo'] =  get_config()['algorithms']['knn']['dist_algo']
+
+    k = config['k']
+    dist_algo = config['dist_algo']
+
+    def calc_dist(current_networks, saved_networks):
+        if dist_algo == 'euclidian':
+            return calc_euclidian_dist(current_networks, saved_networks)
+        elif dist_algo == 'manhattan':
+            return calc_manhattan_dist(current_networks, saved_networks)
+
+    saved_networks_in_chunks = partition_saved_networks_by_id(saved_networks)
+
+    infos = []
+    for saved_networks_chunk in saved_networks_in_chunks.values():
+        dist = calc_dist(current_networks, saved_networks_chunk)
+        if dist is None:
+            continue
+        infos.append({
+            'dist': dist,
+            'inside': get_saved_network_inside(saved_networks_chunk[0]),
+        });
+
+    infos_sorted_by_dist = sorted(infos, key=lambda info: info['dist'])
+
+    top_k_infos = infos_sorted_by_dist[:k]
+
+    top_k_inside_infos = list_filter(top_k_infos, lambda info: info['inside'])
+    top_k_outside_infos = list_filter(top_k_infos, lambda info: not info['inside'])
+
+    inside_count = len(top_k_inside_infos)
+    outside_count = len(top_k_outside_infos)
+
+    if inside_count > outside_count:
+        return [True, False]
+    elif outside_count > inside_count:
+        return [False, True]
+    elif inside_count == 0 and outside_count == 0:
+        return [False, False]
+    else:
+        return [True, True]
     
-    return [is_inside, is_outside]
+def calc_euclidian_dist(current_networks, saved_networks):
+    joint_network_count = 0
+    sum = 0
+    for current_network in current_networks:
+        bssid = get_scanned_network_bssid(current_network)
+        saved_network = list_find(saved_networks, lambda network: get_saved_network_bssid(network) == bssid)
+        if saved_network is None:
+            continue
+        joint_network_count += 1
+        current_rssi = get_scanned_network_rssi(current_network)
+        saved_rssi = get_saved_network_rssi(saved_network)
+        sum += (current_rssi - saved_rssi) ** 2
+    if joint_network_count == 0:
+        return None
+    else:
+        return sum ** 0.5
+    
+def calc_manhattan_dist(current_networks, saved_networks):
+    joint_network_count = 0
+    res = 0
+    for current_network in current_networks:
+        bssid = get_scanned_network_bssid(current_network)
+        saved_network = list_find(saved_networks, lambda network: get_saved_network_bssid(network) == bssid)
+        if saved_network is None:
+            continue
+        joint_network_count += 1
+        current_rssi = get_scanned_network_rssi(current_network)
+        saved_rssi = get_saved_network_rssi(saved_network)
+        res += abs(current_rssi - saved_rssi)
+    if joint_network_count == 0:
+        return None
+    else:
+        return res
     
 def list_filter(lst, callback):
     return list(filter(callback, lst))
@@ -348,3 +431,12 @@ def display_collecting_countdown():
 def log(message):
     if get_config()['log']:
         print(message)
+
+def partition_saved_networks_by_id(networks):
+    chunks = {}
+    for network in networks:
+        id = get_saved_network_id(network)
+        if id not in chunks:
+            chunks[id] = []
+        chunks[id].append(network)
+    return chunks
