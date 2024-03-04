@@ -1,6 +1,8 @@
 import utils
 from glob import glob
 import os
+import math
+from pprint import pprint
 
 def get_train_dir():
     return get_path('/train')
@@ -46,7 +48,7 @@ def test_algorithm(match, match_args = {}):
     train_networks = get_train_networks()
     test_data = get_test_data()
     results = {
-        "span": {},
+        "dates": {},
     }
     accuracy_total = 0
     for date, chunks in test_data.items():
@@ -59,7 +61,7 @@ def test_algorithm(match, match_args = {}):
                 correct += 1
         accuracy = round(correct / len(chunks) * 100, 2)
         accuracy_total += accuracy
-        results['span'][date] = accuracy
+        results['dates'][date] = accuracy
     results['average'] = round(accuracy_total / len(test_data), 2)
     return results
 
@@ -82,3 +84,50 @@ def test_knn_algorithm(k, dist_algo):
         'dist_algo': dist_algo,
     }
     return test_algorithm(match_using_knn_algorithm, match_args)
+
+def find_best_params_for_naive_algorithm(
+    required_network_matches_start = 1, 
+    required_network_matches_end = 10, 
+    required_network_matches_step = 1, 
+    rssi_match_epsilon_start = 0, 
+    rssi_match_epsilon_end = 10, 
+    rssi_match_epsilon_step = 0.5,
+):
+    options = []
+    required_network_matches = required_network_matches_start
+    while required_network_matches <= required_network_matches_end:
+        rssi_match_epsilon = rssi_match_epsilon_start
+        while rssi_match_epsilon < rssi_match_epsilon_end or math.isclose(rssi_match_epsilon, rssi_match_epsilon_end):
+            results = test_naive_algorithm(required_network_matches, rssi_match_epsilon)
+            option = {
+                'required_network_matches': required_network_matches,
+                'rssi_match_epsilon': rssi_match_epsilon,
+                'average': results['average'],
+            };
+            pprint(option)
+            options.append(option)
+            rssi_match_epsilon += rssi_match_epsilon_step
+        required_network_matches += required_network_matches_step
+    options_sorted_by_average_desc = sorted(options, key=lambda option: option['average'], reverse=True)
+    return options_sorted_by_average_desc[0]
+
+def find_best_params_for_knn_algorithm(
+    k_start = 1, 
+    k_end = 100, 
+    k_step = 2,
+):
+    options = []
+    for dist_algo in ['euclidian', 'manhattan']:
+        k = k_start
+        while k <= k_end:
+            results = test_knn_algorithm(k, dist_algo)
+            option = {
+                'dist_algo': dist_algo,
+                'k': k,
+                'average': results['average'],
+            };
+            pprint(option)
+            options.append(option)
+            k += k_step
+    options_sorted_by_average_desc = sorted(options, key=lambda option: option['average'], reverse=True)
+    return options_sorted_by_average_desc[0]
