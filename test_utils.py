@@ -42,7 +42,7 @@ def parse_networks_basename(basename):
         'index': int(parts[2]),
     }
 
-def test_algorithm(match):
+def test_algorithm(match, match_args = {}):
     train_networks = get_train_networks()
     test_data = get_test_data()
     results = {
@@ -54,7 +54,7 @@ def test_algorithm(match):
         for test_networks in chunks.values():
             expected_inside = utils.get_saved_network_inside(test_networks[0])
             current_networks = utils.list_map(test_networks, lambda network: utils.convert_saved_to_scanned_network(network))
-            [inside, outside] = match(current_networks, train_networks)
+            [inside, outside] = match(current_networks, train_networks, match_args)
             if (inside and not outside and expected_inside) or (outside and not inside and not expected_inside):
                 correct += 1
         accuracy = round(correct / len(chunks) * 100, 2)
@@ -63,7 +63,7 @@ def test_algorithm(match):
     results['average'] = round(accuracy_total / len(test_data), 2)
     return results
 
-def match_using_naive_algorithm(current_networks, train_networks):
+def match_using_naive_algorithm(current_networks, train_networks, args = {}):
     config = {
         'required_network_matches': 3,
         'rssi_match_epsilon': 3,
@@ -73,12 +73,16 @@ def match_using_naive_algorithm(current_networks, train_networks):
 def test_naive_algorithm():
     return test_algorithm(match_using_naive_algorithm)
 
-def match_using_knn_algorithm(current_networks, train_networks):
+def match_using_knn_algorithm(current_networks, train_networks, args = {}):
     config = {
         'k': 3,
-        'dist_algo': 'euclidian',
+        'dist_algo': args['dist_algo'],
     }
     return utils.match_using_knn_algorithm(current_networks, train_networks, config)
 
-def test_knn_algorithm():
-    return test_algorithm(match_using_knn_algorithm)
+
+def test_knn_algorithm(dist_algo = 'euclidian'):
+    args = {
+        'dist_algo': dist_algo,
+    };
+    return test_algorithm(match_using_knn_algorithm, args)
